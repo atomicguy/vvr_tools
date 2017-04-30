@@ -189,3 +189,18 @@ def get_bndbox(image):
 
     print('bbox is', bndbox)
     return bndbox
+
+
+# generate probability density function for x
+def get_pdf_x(x_length):
+    mu_l, sig_l = 0.0865, 0.0266
+    mu_r, sig_r = 0.9143, 0.0250
+    x = np.arange(0, 1, 0.001)
+
+    pdf_l = 1 / (sig_l * np.sqrt(2 * np.pi)) * np.exp(- (x - mu_l) ** 2 / (2 * sig_l ** 2))
+    pdf_r = 1 / (sig_r * np.sqrt(2 * np.pi)) * np.exp(- (x - mu_r) ** 2 / (2 * sig_r ** 2))
+
+    pdf = pdf_l + pdf_r
+
+    line_max = np.max(pdf)
+    norm_pdf = pdf / line_max
