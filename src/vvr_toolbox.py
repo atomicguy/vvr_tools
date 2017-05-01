@@ -11,10 +11,13 @@ import os
 import skimage
 from skimage import io
 from skimage import color
+from skimage import exposure
 import numpy as np
 from scipy import signal
 import scipy.signal.signaltools as sigtool
-
+from skimage.filters import threshold_otsu
+from skimage.morphology import disk, erosion
+from scipy import ndimage
 
 # get list of images
 def get_list_of_images(image_dir):
@@ -164,7 +167,26 @@ def get_edge_point(square_wave, direction):
     return edge
 
 
-# get edges of card
+# generate probability density function for x
+def get_pdf_x(target_length):
+    mu_l, sig_l = 86.5, 26.6
+    mu_r, sig_r = 914.3, 25.0
+    x = np.arange(0, 1000, 1)
+
+    pdf_l = 1 / (sig_l * np.sqrt(2 * np.pi)) * np.exp(- (x - mu_l) ** 2 / (2 * sig_l ** 2))
+    pdf_r = 1 / (sig_r * np.sqrt(2 * np.pi)) * np.exp(- (x - mu_r) ** 2 / (2 * sig_r ** 2))
+
+    pdf = pdf_l + pdf_r
+
+    line_max = np.max(pdf)
+    norm_pdf = pdf / line_max
+
+    pdf_scaled = signal.resample(norm_pdf, target_length)
+
+    return pdf_scaled
+
+
+# get edges of stereo images
 def get_bndbox(image):
     """
     Cacluate the bounding box for the right/left pair in a stereocard
@@ -175,7 +197,10 @@ def get_bndbox(image):
 
     # for x direction
     x_sums = get_luma_sums(img_luma, 'width')
-    x_binary = make_luma_binary(x_sums)
+    x_bias = get_pdf_x(img_luma.shape[1])
+    x_biased = x_sums * x_bias
+
+    x_binary = make_luma_binary(x_biased)
     xmin = get_edge_point(x_binary, 0)
     xmax = get_edge_point(x_binary, 1)
 
@@ -191,16 +216,38 @@ def get_bndbox(image):
     return bndbox
 
 
-# generate probability density function for x
-def get_pdf_x(x_length):
-    mu_l, sig_l = 0.0865, 0.0266
-    mu_r, sig_r = 0.9143, 0.0250
-    x = np.arange(0, 1, 0.001)
+# get bounding box of stereocard
+def get_card_bndbox(image):
+    img_ycbcr = skimage.color.rgb2ycbcr(image)
+    img_cb = img_ycbcr[:,:,1]
+    img_cb_invert = np.max(img_cb) - img_cb
+    img_cr = img_ycbcr[:,:,2]
 
-    pdf_l = 1 / (sig_l * np.sqrt(2 * np.pi)) * np.exp(- (x - mu_l) ** 2 / (2 * sig_l ** 2))
-    pdf_r = 1 / (sig_r * np.sqrt(2 * np.pi)) * np.exp(- (x - mu_r) ** 2 / (2 * sig_r ** 2))
+    img_combo = img_cb_invert + img_cr
+    img_combo = skimage.exposure.equalize_hist(img_combo)
 
-    pdf = pdf_l + pdf_r
+    thresh = threshold_otsu(img_combo)
+    binary = img_combo > thresh
 
-    line_max = np.max(pdf)
-    norm_pdf = pdf / line_max
+    mo_disk = skimage.morphology.disk(7)
+    eroded = skimage.morphology.erosion(binary, mo_disk)
+
+    label_im, nb_labels = ndimage.label(eroded)
+    sizes = ndimage.sum(eroded, label_im, range(nb_labels + 1))
+    mask_size = sizes < 1000
+
+    remove_pixel = mask_size[label_im]
+    label_im[remove_pixel] = 0
+    labels = np.unique(label_im)
+    label_im = np.searchsorted(labels, label_im)
+
+    slice_x, slice_y = ndimage.find_objects(label_im == 1)[0]
+
+    xmin = slice_x[0]
+    xmax = slice_x[1]
+    ymin = slice_y[0]
+    ymax = slice_y[1]
+
+    bbox = [xmin, xmax, ymin, ymax]
+
+    return bbox
