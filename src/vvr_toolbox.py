@@ -243,11 +243,15 @@ def get_card_bndbox(image):
 
     slice_x, slice_y = ndimage.find_objects(label_im == 1)[0]
 
-    xmin = slice_x[0]
-    xmax = slice_x[1]
-    ymin = slice_y[0]
-    ymax = slice_y[1]
-
-    bbox = [xmin, xmax, ymin, ymax]
+    bbox = [slice_x, slice_y]
 
     return bbox
+
+
+# return cropped card for further processing
+def get_stereo_card(image):
+    slices = get_card_bndbox(image)
+
+    img_card = image[slices[0], slices[1]]
+
+    return img_card
