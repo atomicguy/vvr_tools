@@ -1,5 +1,8 @@
 # Custom gitignore
+data
+tmp
 vvrenv
+.idea
 .vscode
 
 #macOS gitignore
