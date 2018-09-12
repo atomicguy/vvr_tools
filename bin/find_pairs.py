@@ -3,6 +3,7 @@ from __future__ import division, absolute_import
 import os
 import glob
 import json
+import progressbar
 
 from argparse import ArgumentParser
 from PIL import Image
@@ -23,7 +24,7 @@ if __name__ == '__main__':
 
     info_list = []
 
-    for img in images:
+    for img in progressbar.progressbar(images):
         name = os.path.splitext(os.path.basename(img))[0]
 
         img_data = Image.open(img)
@@ -33,11 +34,14 @@ if __name__ == '__main__':
 
             info = {'name': name, 'bbox': bbox}
             info_list.append(info)
+            cropped = img_data.crop((bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']))
+            cropped.save(os.path.join(args.out, '{}.jpg'.format(name)))
+
         except:
             print('error image {}'.format(name))
 
-    with open(os.path.join(args.out, 'pairs.json'), 'w') as f:
-        try:
-            json.dump(info_list, f, indent=2)
-        except TypeError:
-            print(info_list)
+    # with open(os.path.join(args.out, 'pairs.json'), 'w') as f:
+    #     try:
+    #         json.dump(info_list, f, indent=2)
+    #     except TypeError:
+    #         print(info_list)

@@ -3,6 +3,7 @@ from __future__ import division, absolute_import
 import os
 import glob
 import json
+import progressbar
 
 from argparse import ArgumentParser
 from PIL import Image
@@ -23,7 +24,7 @@ if __name__ == '__main__':
 
     info_list = []
 
-    for img in images:
+    for img in progressbar.progressbar(images):
         name = os.path.splitext(os.path.basename(img))[0]
 
         img_data = Image.open(img)

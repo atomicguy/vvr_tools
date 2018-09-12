@@ -21,7 +21,7 @@ def just_edge_peaks(peaks, width):
     return (x0_pool, x1_pool)
 
 
-def best_peaks(x0_pool, x1_pool, card_width):
+def best_peaks(x0_pool, x1_pool, card_width, plot):
     # Make all combinations of potential peaks
     largest_pool = np.max([len(x0_pool), len(x1_pool)])
     combinations = np.array(np.meshgrid(x0_pool, x1_pool)).T.reshape(-1, largest_pool)
@@ -38,18 +38,30 @@ def best_peaks(x0_pool, x1_pool, card_width):
     pool_truth = np.logical_and(mid_truth, size_truth)
     num_passed = np.sum(pool_truth)
 
+    # TODO:
+    # investigate ways of dealing with variations of 
+    # what happens for variations of pair testing
+    # original writeup showed handling pair match passing
+    # only one test use the 80% rule
+
     if num_passed == 1:
         best_combo = combinations[pool_truth == True]
         x0 = best_combo[0][0]
         x1 = best_combo[0][1]
     else:
-        x0 = np.min(x0_pool)
-        x1 = np.max(x1_pool)
+        # Choose Max peak values
+        peak_vals0 = [plot[i] for i in x0_pool]
+        idx = np.argmax(peak_vals0)
+        x0 = x0_pool[idx]
+
+        peak_vals1 = [plot[i] for i in x1_pool]
+        idx = np.argmax(peak_vals1)
+        x1 = x1_pool[idx]
 
     return x0, x1
 
 
-def return_x_bounds(peaks, width):
+def return_x_bounds(peaks, width, plot):
     num_peaks = len(peaks)
 
     if num_peaks < 2:
@@ -63,7 +75,7 @@ def return_x_bounds(peaks, width):
     else:
         # pare down list to get most likely right and left values
         x0_pool, x1_pool = just_edge_peaks(peaks, width)
-        x0, x1 = best_peaks(x0_pool, x1_pool, width)
+        x0, x1 = best_peaks(x0_pool, x1_pool, width, plot)
 
     return x0, x1
 
@@ -157,13 +169,16 @@ def get_x_points(card_img):
     # Get peaks
     peaks = find_peaks(biased_w)[0]
 
-    x0, x1 = return_x_bounds(peaks, w)
+    x0, x1 = return_x_bounds(peaks, w, biased_w)
 
     return x0, x1
 
 
 def return_y_bounds(peaks, biased_h, height):
     y0_pool, y1_pool = just_edge_peaks(peaks, height)
+
+    # TODO:
+    # Try zero cases with 0 and height instead of 10/90%
 
     if len(y0_pool) == 0:
         # Failsafe Value

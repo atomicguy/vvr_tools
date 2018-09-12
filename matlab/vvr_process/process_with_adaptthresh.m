@@ -1,13 +1,13 @@
 clear;clc;
 
-load('nypl_stereoview_db');
+load('vvr_process/nypl_stereoview_db');
 
-rootDir = fullfile(filesep,'Volumes','Go','images_to_run');
-imDir = fullfile(rootDir,'images',filesep);
-cardsOut = fullfile(rootDir,'cards',filesep);
-pairOut = fullfile(rootDir,'pairs',filesep);
-lrpairsOut = fullfile(rootDir,'lrpairs',filesep);
-stepsOut = fullfile(rootDir,'steps',filesep);
+rootDir = fullfile(filesep,'Users','atom','code','VVR_tools','data');
+imDir = fullfile(rootDir,'FL',filesep);
+cardsOut = fullfile(rootDir,'matlabresults','cards',filesep);
+pairOut = fullfile(rootDir,'matlabresults','pairs',filesep);
+lrpairsOut = fullfile(rootDir,'matlabresults','lrpairs',filesep);
+stepsOut = fullfile(rootDir,'matlabresults','steps',filesep);
 
 imSet = imageSet(imDir);
 
@@ -17,7 +17,7 @@ num_img = imSet.Count;
 json_blob = [];
 json_blob = struct('imageLoc',[],'imageName',[],'imageUUID',[],'imageIndex',[],'delineator',[]);
 
-for n = 1:num_img
+for n = 1:2
     
     try
         image_original = read(imSet,n);
@@ -51,7 +51,7 @@ for n = 1:num_img
             tmpfigy = figure('Visible','off');
             plot(y_cut_peaks,'Color',[0.02, 0.59, 0.88],'LineWidth',2);
             axis off;
-            Plot2LaTeX(tmpfigy,['figures/',image_id,'_06_yplot']);
+%             Plot2LaTeX(tmpfigy,['figures/',image_id,'_06_yplot']);
         catch
             disp('no yplot');
         end
@@ -60,7 +60,7 @@ for n = 1:num_img
             tmpfig = figure('Visible','off');
             plot(smooth_plot,'Color',[0.02, 0.59, 0.88],'LineWidth',2);
             axis off;
-            Plot2LaTeX(tmpfig,['figures/',image_id,'_05_xplot']);
+%             Plot2LaTeX(tmpfig,['figures/',image_id,'_05_xplot']);
         catch
             disp('no xplot svg');
         end
@@ -98,5 +98,5 @@ end
 
 reset(gcf);
 
-savejson('cards',json_blob,[rootDir,'/imagelist.json']);
+% savejson('cards',json_blob,[rootDir,'/imagelist.json']);
 

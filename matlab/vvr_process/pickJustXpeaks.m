@@ -25,7 +25,7 @@ function [ crop_points, partA, partB, bias_term, smooth_plot, xplotC ] = pickJus
     xplot = xplotC;
     xplot(xplot<std(xplot)) = 0;
     xplot = medfilt1(xplot);
-
+    
     plength = numel(xplot);
     
     % measurements indicate the following values for biasing plots
@@ -61,7 +61,7 @@ function [ crop_points, partA, partB, bias_term, smooth_plot, xplotC ] = pickJus
     coefSample = ones(1, sampleSize)/sampleSize;
 
     smooth_plot = filter(coefSample, 1, biased_plot);
-
+    
     [pks,locs] = findpeaks(smooth_plot,'MinPeakHeight',mean(smooth_plot));
 
     % plotting peaks on zero line for ease of indexing

@@ -25,8 +25,8 @@ def binary_version(gray_image):
 
 
 def cleaned_image(binary_image):
-    """Use Diamnd shaped binary erosion to clean up image"""
-    selem = diamond(3)
+    """Use Diamond shaped binary erosion to clean up image"""
+    selem = diamond(7)
     cleaned = binary_erosion(binary_image, selem)
 
     return cleaned
