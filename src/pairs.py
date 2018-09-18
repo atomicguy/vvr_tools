@@ -48,6 +48,8 @@ def best_peaks(x0_pool, x1_pool, card_width, plot):
         best_combo = combinations[pool_truth == True]
         x0 = best_combo[0][0]
         x1 = best_combo[0][1]
+    # if num_passed > 1:
+    #     # narrow down x0_pool and x1_pool from all which passed both tests
     else:
         # Choose Max peak values
         peak_vals0 = [plot[i] for i in x0_pool]
@@ -68,10 +70,12 @@ def return_x_bounds(peaks, width, plot):
         # Failsafe, return average results
         x0 = np.round(width * 0.1)
         x1 = np.round(wdith * 0.9)
+        # print('used failsafe')
     elif num_peaks == 2:
         # Twin Peaks found
         x0 = peaks[0]
         x1 = peaks[1]
+        # print('twin peaks')
     else:
         # pare down list to get most likely right and left values
         x0_pool, x1_pool = just_edge_peaks(peaks, width)

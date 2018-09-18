@@ -4,22 +4,43 @@ import os
 import numpy as np
 
 from skimage import color 
-from skimage.filters import threshold_otsu
+from skimage.filters import threshold_otsu, threshold_minimum
 from skimage.morphology import diamond
 from skimage.morphology import binary_erosion
 
 
-def v_channel(image):
-    """Return V of YUV channel"""
-    yuv = color.rgb2yuv(image)
+def cbcr_split(image):
+    """Return combination of Cb and Cr channels"""
+    ycbcr = color.rgb2ycbcr(image)
 
-    return yuv[:, :, 2]
+    cb = ycbcr[:, :, 1]
+    cr = ycbcr[:, :, 2]
+    
+    combo = cr + (np.max(cb) - cb)
+
+    return combo / np.max(combo)
+    
+    # lab = color.rgb2lab(image)
+    # a = lab[:, :, 1]
+    # b = lab[:, :, 2]
+
+    # combo = a + b
+
+    # return combo / np.max(combo)
 
 
 def binary_version(gray_image):
     """Otsu Method binary thesholded image"""
     thresh = threshold_otsu(gray_image)
     binary = gray_image > thresh
+
+    # block_size = 35
+
+    # local_thresh = threshold_local(gray_image, block_size, offset=10)
+    # binary = gray_image > local_thresh
+
+    # thresh_min = threshold_minimum(gray_image)
+    # binary = gray_image > thresh_min
 
     return binary
 
@@ -66,16 +87,18 @@ def calculate_bbox(mask):
     
     x = xmin * mask_width
     y = ymin * mask_height
-    w = (xmax - xmin) * mask_width
-    h = (ymax - ymin) * mask_height
+    # w = (xmax - xmin) * mask_width
+    # h = (ymax - ymin) * mask_height
+    x1 = xmax * mask_width
+    y1 = ymax * mask_height
 
-    return [x, y, w, h]
+    return [int(x), int(y), int(x1), int(y1)]
 
 
 def card_bbox(image):
     """Return bbox for card of given image"""
 
-    gray_image = v_channel(image)
+    gray_image = cbcr_split(image)
     binary_image = binary_version(gray_image)
     cleaned = cleaned_image(binary_image)
     bbox = calculate_bbox(cleaned)

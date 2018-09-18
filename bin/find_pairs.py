@@ -37,23 +37,32 @@ if __name__ == '__main__':
 
         full_img = Image.open(img)
         card_info = next(item for item in cards if item["name"] == name)
+
         # crop image to card
         xmin = card_info['bbox'][0]
-        xmax = xmin + card_info['bbox'][2]
+        xmax = card_info['bbox'][2]
         ymin = card_info['bbox'][1]
-        ymax = ymin + card_info['bbox'][3]
+        ymax = card_info['bbox'][3]
         img_data = full_img.crop((xmin, ymin, xmax, ymax))
+        # img_data.save(os.path.join(args.out, 'cards', '{}.jpg'.format(name)))
 
-        try:
-            bbox = get_pair_bounds(img_data)
+        cropped_bbox = get_pair_bounds(img_data)
+        x0 = xmin + cropped_bbox['x0']
+        x1 = xmin + cropped_bbox['x1']
+        y0 = ymin + cropped_bbox['y0']
+        y1 = ymin + cropped_bbox['y1']
+        bbox = {'x0': x0, 'x1': x1, 'y0': y0, 'y1': y1}
 
-            info = {'name': name, 'bbox': bbox}
-            info_list.append(info)
-            cropped = img_data.crop((bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']))
-            cropped.save(os.path.join(args.img_out, '{}.jpg'.format(name)))
+        info = {'name': name, 'bbox': bbox}
+        info_list.append(info)
+        cropped = full_img.crop((bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']))
+        cropped.save(os.path.join(args.img_out, '{}.jpg'.format(name)))
 
-        except:
-            print('error image {}'.format(name))
+        # try:
+ 
+
+        # except Exception as e:
+        #     print('error {} for image {}'.format(e, name))
 
     with open(os.path.join(args.out, 'pairs.json'), 'w') as f:
         try:

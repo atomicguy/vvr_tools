@@ -32,13 +32,10 @@ if __name__ == '__main__':
         maip = next(item for item in pair_info if item["name"] == name)
         maip_bbox = maip['bbox']
 
-        xmin = card_bbox[0]
-        ymin = card_bbox[1]
-
-        x0 = xmin + maip_bbox['x0']
-        y0 = ymin + maip_bbox['y0']
-        x1 = xmin + maip_bbox['x1']
-        y1 = ymin + maip_bbox['y1']
+        x0 = maip_bbox['x0']
+        y0 = maip_bbox['y0']
+        x1 = maip_bbox['x1']
+        y1 = maip_bbox['y1']
 
         truth = etree.parse(os.path.join(args.truth, '{}.xml'.format(name)))
         maip = truth.xpath("//*[local-name()='object']/*[text()='MAIP']/./..")[0]

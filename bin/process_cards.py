@@ -31,20 +31,26 @@ if __name__ == '__main__':
     maip_dir = os.path.join(args.out, 'maips')
 
     print('Finding Card Bounds')
-    card_cmd = ['python3', 'bin/find_cards.py', 
-                '--img_dir', args.img_dir,
-                '--out', args.out]
-    
-    subprocess.call(card_cmd)
+    if not os.path.exists(card_info):
+        card_cmd = ['python3', 'bin/find_cards.py', 
+                    '--img_dir', args.img_dir,
+                    '--out', args.out]
+        
+        subprocess.call(card_cmd)
+    else:
+        print('Card info already calculated')
 
     print('Finding MAIPs')
-    maip_cmd = ['python3', 'bin/find_pairs.py',
-                '--img_dir', args.img_dir,
-                '--card_info', card_info,
-                '--out', args.out,
-                '--img_out', maip_dir]
+    if not os.path.exists(maip_info):
+        maip_cmd = ['python3', 'bin/find_pairs.py',
+                    '--img_dir', args.img_dir,
+                    '--card_info', card_info,
+                    '--out', args.out,
+                    '--img_out', maip_dir]
 
-    subprocess.call(maip_cmd)
+        subprocess.call(maip_cmd)
+    else:
+        print('Pair maip info already calculated')
 
     print('Evaluating')
     eval_cmd = ['python3', 'bin/evaluate.py', 
