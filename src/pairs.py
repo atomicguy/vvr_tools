@@ -1,10 +1,12 @@
 from __future__ import division, absolute_import
 
 import os
+import cv2
 import numpy as np
 
 # from PIL import Image
 from skimage import color
+from skimage.filters import sobel_v
 from scipy.stats import norm
 from scipy.signal import find_peaks, medfilt, lfilter
 
@@ -26,17 +28,20 @@ def best_peaks(x0_pool, x1_pool, card_width, plot):
     largest_pool = np.max([len(x0_pool), len(x1_pool)])
     combinations = np.array(np.meshgrid(x0_pool, x1_pool)).T.reshape(-1, largest_pool)
 
-    # Test if center (simplified formula) is near 85% image center
-    img_pair_size = (combinations[:, 1] - combinations[:, 0]) / card_width
-    mid_truth = np.greater(img_pair_size, np.ones_like(img_pair_size) * 0.85)
+    if len(x0_pool) > 1 & len(x1_pool) > 1:
+        # Test if center (simplified formula) is near 85% image center
+        img_pair_size = (combinations[:, 1] - combinations[:, 0]) / card_width
+        mid_truth = np.greater(img_pair_size, np.ones_like(img_pair_size) * 0.85)
 
-    # Test if left edge strip + right edge of image pair is near full image size
-    est_card_size = (combinations[:, 1] + combinations[:, 0]) / card_width
-    size_truth = np.isclose(est_card_size, np.ones_like(img_pair_size), rtol=0.02)
+        # Test if left edge strip + right edge of image pair is near full image size
+        est_card_size = (combinations[:, 1] + combinations[:, 0]) / card_width
+        size_truth = np.isclose(est_card_size, np.ones_like(img_pair_size), rtol=0.02)
 
-    # Find pairs passing both tests
-    pool_truth = np.logical_and(mid_truth, size_truth)
-    num_passed = np.sum(pool_truth)
+        # Find pairs passing both tests
+        pool_truth = np.logical_and(mid_truth, size_truth)
+        num_passed = np.sum(pool_truth)
+    else:
+        num_passed = 0
 
     # TODO:
     # investigate ways of dealing with variations of 
@@ -48,17 +53,41 @@ def best_peaks(x0_pool, x1_pool, card_width, plot):
         best_combo = combinations[pool_truth == True]
         x0 = best_combo[0][0]
         x1 = best_combo[0][1]
-    # if num_passed > 1:
-    #     # narrow down x0_pool and x1_pool from all which passed both tests
+
+    if num_passed > 1:
+        # narrow down x0_pool and x1_pool from all which passed both tests
+        # print('num passed is {}'.format(num_passed))
+        best_combos = combinations[pool_truth == True]
+        x0_list = best_combos[:, 0]
+        x1_list = best_combos[:, 1]
+        # x0 = np.max(x0_list)
+        # x1 = np.min(x1_list)
+
+        peak_vals0 = [plot[i] for i in x0_list]
+        idx = np.argmax(peak_vals0)
+        x0 = x0_list[idx]
+
+        peak_vals1 = [plot[i] for i in x1_list]
+        idx = np.argmax(peak_vals1)
+        x1 = x1_list[idx]
+
     else:
         # Choose Max peak values
         peak_vals0 = [plot[i] for i in x0_pool]
-        idx = np.argmax(peak_vals0)
-        x0 = x0_pool[idx]
+        if len(peak_vals0) > 0:
+            idx = np.argmax(peak_vals0)
+            x0 = x0_pool[idx]
+        else:
+            # failsafe value of average x0
+            x0 = 0.0865 * card_width
 
         peak_vals1 = [plot[i] for i in x1_pool]
-        idx = np.argmax(peak_vals1)
-        x1 = x1_pool[idx]
+        if len(peak_vals1) > 0:
+            idx = np.argmax(peak_vals1)
+            x1 = x1_pool[idx]
+        else:
+            # failsafe value of average x1
+            x1 = 0.9143 * card_width
 
     return x0, x1
 
@@ -84,32 +113,63 @@ def return_x_bounds(peaks, width, plot):
     return x0, x1
 
 
-def get_diff_peaks(img, axis):
-    # return the absolute value of the differential of the sum of image columns
-    # axis is 0 for width and 1 for height images
+def fft_filter(img, axis, mask_width):
+    dft = cv2.dft(np.float32(img),flags = cv2.DFT_COMPLEX_OUTPUT)
+    dft_shift = np.fft.fftshift(dft)
+
+    rows, cols = img.shape
+    crow, ccol = int(rows/2) , int(cols/2)
+
+    # create a mask first, center square is 1, remaining all zeros
+    mask = np.zeros((rows,cols,2),np.uint8)
+    x = int(mask_width / 2)
+    if axis == 1:
+        mask[crow-x:crow+x, :] = 1
+    else:
+        mask[:, ccol-x:ccol+x] = 1
+
+    # apply mask and inverse DFT
+    fshift = dft_shift*mask
+    f_ishift = np.fft.ifftshift(fshift)
+    img_back = cv2.idft(f_ishift)
+    img_back = cv2.magnitude(img_back[:,:,0],img_back[:,:,1])
+
+    return img_back / np.max(img_back)
+
+
+def special_ycbcr(img, axis):
+    # Combination of Cb and Cr channels
     ycbcr = color.rgb2ycbcr(img)
-    y = ycbcr[:, :, 0] / np.max(ycbcr[:, :, 0])
 
-    # part a
-    y_sum = np.sum(y, axis=axis)
-    y_diff = np.abs(np.diff(y_sum))
-
-    # part b
     cb = ycbcr[:, :, 1]
     cr = ycbcr[:, :, 2]
 
     cb_i = np.max(cb) - cb
     combo = cb_i + cr
+
     combo_norm = combo / np.max(combo)
+
+    return combo_norm
+
+
+def get_diff_peaks(img, axis):
+    # return the absolute value of the differential of the sum of image columns
+    # axis is 0 for width and 1 for height images
+    
+    # TESTING
+    hsv = color.rgb2hsv(img)
+    sat = hsv[:, :, 1]
+    combo_norm = sat / np.max(sat)
+
+    # combo_norm = special_ycbcr(img, axis)
+    combo_norm = fft_filter(combo_norm, axis, 400)
+    # combo_norm = sobel_v(combo_norm)
 
     combo_sum = np.sum(combo_norm, axis=axis)
     combo_diff = np.abs(np.diff(combo_sum))
 
-    # combined
-    combo_plot = y_diff + combo_diff
-
     # filter
-    x_plot = combo_plot
+    x_plot = combo_diff
 
     # remove values below the standard deviation
     x_plot[x_plot < np.std(x_plot)] = 0
