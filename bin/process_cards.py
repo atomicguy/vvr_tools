@@ -2,14 +2,9 @@ from __future__ import division, absolute_import
 
 import os
 import glob
-import json
-import progressbar
 import subprocess
 
 from argparse import ArgumentParser
-from PIL import Image
-from src.card import card_bbox
-from src.pairs import get_pair_bounds
 
 
 def find_filepaths(path, extension):

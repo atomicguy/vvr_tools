@@ -6,6 +6,7 @@ import numpy as np
 
 # from PIL import Image
 from skimage import color
+from skimage.feature import hog
 from skimage.filters import sobel_v
 from scipy.stats import norm
 from scipy.signal import find_peaks, medfilt, lfilter
@@ -98,7 +99,7 @@ def return_x_bounds(peaks, width, plot):
     if num_peaks < 2:
         # Failsafe, return average results
         x0 = np.round(width * 0.1)
-        x1 = np.round(wdith * 0.9)
+        x1 = np.round(width * 0.9)
         # print('used failsafe')
     elif num_peaks == 2:
         # Twin Peaks found
@@ -114,30 +115,30 @@ def return_x_bounds(peaks, width, plot):
 
 
 def fft_filter(img, axis, mask_width):
-    dft = cv2.dft(np.float32(img),flags = cv2.DFT_COMPLEX_OUTPUT)
+    dft = cv2.dft(np.float32(img), flags=cv2.DFT_COMPLEX_OUTPUT)
     dft_shift = np.fft.fftshift(dft)
 
     rows, cols = img.shape
-    crow, ccol = int(rows/2) , int(cols/2)
+    crow, ccol = int(rows/2), int(cols/2)
 
     # create a mask first, center square is 1, remaining all zeros
-    mask = np.zeros((rows,cols,2),np.uint8)
+    mask = np.ones((rows,cols,2),np.uint8)
     x = int(mask_width / 2)
     if axis == 1:
-        mask[crow-x:crow+x, :] = 1
+        mask[crow-x:crow+x, :] = 0
     else:
-        mask[:, ccol-x:ccol+x] = 1
+        mask[:, ccol-x:ccol+x] = 0
 
     # apply mask and inverse DFT
     fshift = dft_shift*mask
     f_ishift = np.fft.ifftshift(fshift)
     img_back = cv2.idft(f_ishift)
-    img_back = cv2.magnitude(img_back[:,:,0],img_back[:,:,1])
+    img_back = cv2.magnitude(img_back[:, :, 0], img_back[:, :, 1])
 
     return img_back / np.max(img_back)
 
 
-def special_ycbcr(img, axis):
+def special_ycbcr(img):
     # Combination of Cb and Cr channels
     ycbcr = color.rgb2ycbcr(img)
 
@@ -161,8 +162,11 @@ def get_diff_peaks(img, axis):
     sat = hsv[:, :, 1]
     combo_norm = sat / np.max(sat)
 
-    # combo_norm = special_ycbcr(img, axis)
-    combo_norm = fft_filter(combo_norm, axis, 400)
+    # combo_norm = special_ycbcr(img)
+    # filter
+    # combo_norm = fft_filter(combo_norm, axis, 60)
+    _, combo_norm = hog(combo_norm, orientations=6, pixels_per_cell=(16, 16),
+                    cells_per_block=(1, 1), visualize=True)
     # combo_norm = sobel_v(combo_norm)
 
     combo_sum = np.sum(combo_norm, axis=axis)
@@ -179,6 +183,10 @@ def get_diff_peaks(img, axis):
 
     # mean filter
     smoothed = medfilt(x_plot, kernel_size=3)
+    
+    # # FOR TESTING ONLY
+    # bias = x_bias_curve(smoothed)
+    # smoothed = smoothed * bias
 
     return smoothed
 
