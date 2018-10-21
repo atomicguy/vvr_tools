@@ -87,8 +87,6 @@ def calculate_bbox(mask):
     
     x = xmin * mask_width
     y = ymin * mask_height
-    # w = (xmax - xmin) * mask_width
-    # h = (ymax - ymin) * mask_height
     x1 = xmax * mask_width
     y1 = ymax * mask_height
 

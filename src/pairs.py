@@ -12,6 +12,42 @@ from scipy.stats import norm
 from scipy.signal import find_peaks, medfilt, lfilter
 
 
+def x_bias_curve(x_data):
+    # Observed Average Curve Metrics
+    x0 = {'x': 0.00418, 'mu': 0.0865, 'sigma': 0.0266}
+    x1 = {'x': 0.003, 'mu': 0.9143, 'sigma': 0.025}
+
+    w = x_data.size
+
+    # Generate scaled bias curves
+    bias_l = {'x': x0['x'] * w, 'mu': x0['mu'] * w, 'sigma': x0['sigma'] * w}
+    bias_r = {'x': x1['x'] * w, 'mu': x1['mu'] * w, 'sigma': x1['sigma'] * w}
+
+    l_term = bias_l['x'] * norm.pdf(range(0, w), bias_l['mu'], bias_l['sigma'])
+    r_term = bias_r['x'] * norm.pdf(range(0, w), bias_r['mu'], bias_r['sigma'])
+    bias_term = (l_term + r_term)
+
+    return bias_term
+
+
+def y_bias_curve(y_data):
+    # Observed Average Curve Metrics
+    y0 = {'y': 0.0044, 'mu': 0.0420, 'sigma': 0.0186}
+    y1 = {'y': 0.0088, 'mu': 0.9447, 'sigma': 0.0179}
+
+    h = y_data.size
+
+    # Generate scaled bias curves
+    bias_l = {'y': y0['y'] * h, 'mu': y0['mu'] * h, 'sigma': y0['sigma'] * h}
+    bias_r = {'y': y1['y'] * h, 'mu': y1['mu'] * h, 'sigma': y1['sigma'] * h}
+
+    l_term = bias_l['y'] * norm.pdf(range(0, h), bias_l['mu'], bias_l['sigma'])
+    r_term = bias_r['y'] * norm.pdf(range(0, h), bias_r['mu'], bias_r['sigma'])
+    bias_term = (l_term + r_term)
+
+    return bias_term / np.max(bias_term)
+
+
 def just_edge_peaks(peaks, width):
     # left value is < 30% width
     # right value is > 70% width
@@ -93,27 +129,6 @@ def best_peaks(x0_pool, x1_pool, card_width, plot):
     return x0, x1
 
 
-def return_x_bounds(peaks, width, plot):
-    num_peaks = len(peaks)
-
-    if num_peaks < 2:
-        # Failsafe, return average results
-        x0 = np.round(width * 0.1)
-        x1 = np.round(width * 0.9)
-        # print('used failsafe')
-    elif num_peaks == 2:
-        # Twin Peaks found
-        x0 = peaks[0]
-        x1 = peaks[1]
-        # print('twin peaks')
-    else:
-        # pare down list to get most likely right and left values
-        x0_pool, x1_pool = just_edge_peaks(peaks, width)
-        x0, x1 = best_peaks(x0_pool, x1_pool, width, plot)
-
-    return x0, x1
-
-
 def fft_filter(img, axis, mask_width):
     dft = cv2.dft(np.float32(img), flags=cv2.DFT_COMPLEX_OUTPUT)
     dft_shift = np.fft.fftshift(dft)
@@ -167,7 +182,7 @@ def get_diff_peaks(img, axis):
     # combo_norm = fft_filter(combo_norm, axis, 60)
     _, combo_norm = hog(combo_norm, orientations=6, pixels_per_cell=(16, 16),
                     cells_per_block=(1, 1), visualize=True)
-    # combo_norm = sobel_v(combo_norm)
+    combo_norm = sobel_v(combo_norm)
 
     combo_sum = np.sum(combo_norm, axis=axis)
     combo_diff = np.abs(np.diff(combo_sum))
@@ -191,57 +206,23 @@ def get_diff_peaks(img, axis):
     return smoothed
 
 
-def x_bias_curve(x_data):
-    # Observed Average Curve Metrics
-    x0 = {'x': 0.00418, 'mu': 0.0865, 'sigma': 0.0266}
-    x1 = {'x': 0.003, 'mu': 0.9143, 'sigma': 0.025}
+def return_x_bounds(peaks, width, plot):
+    num_peaks = len(peaks)
 
-    w = x_data.size
-
-    # Generate scaled bias curves
-    bias_l = {'x': x0['x'] * w, 'mu': x0['mu'] * w, 'sigma': x0['sigma'] * w}
-    bias_r = {'x': x1['x'] * w, 'mu': x1['mu'] * w, 'sigma': x1['sigma'] * w}
-
-    l_term = bias_l['x'] * norm.pdf(range(0, w), bias_l['mu'], bias_l['sigma'])
-    r_term = bias_r['x'] * norm.pdf(range(0, w), bias_r['mu'], bias_r['sigma'])
-    bias_term = (l_term + r_term)
-
-    return bias_term
-
-
-def y_bias_curve(y_data):
-    # Observed Average Curve Metrics
-    y0 = {'y': 0.0044, 'mu': 0.0420, 'sigma': 0.0186}
-    y1 = {'y': 0.0088, 'mu': 0.9447, 'sigma': 0.0179}
-
-    h = y_data.size
-
-    # Generate scaled bias curves
-    bias_l = {'y': y0['y'] * h, 'mu': y0['mu'] * h, 'sigma': y0['sigma'] * h}
-    bias_r = {'y': y1['y'] * h, 'mu': y1['mu'] * h, 'sigma': y1['sigma'] * h}
-
-    l_term = bias_l['y'] * norm.pdf(range(0, h), bias_l['mu'], bias_l['sigma'])
-    r_term = bias_r['y'] * norm.pdf(range(0, h), bias_r['mu'], bias_r['sigma'])
-    bias_term = (l_term + r_term)
-
-    return bias_term / np.max(bias_term)
-
-
-def get_x_points(card_img):
-    w, h = card_img.size
-    w_slice = card_img.crop((0, np.round(h * 1/3), w, np.round(h * 2/3)))
-
-    # Make graph of brightnesses
-    intensities_w = get_diff_peaks(w_slice, 0)
-
-    # Bias the curve
-    bias_term = x_bias_curve(intensities_w)
-    biased_w = bias_term * intensities_w
-
-    # Get peaks
-    peaks = find_peaks(biased_w)[0]
-
-    x0, x1 = return_x_bounds(peaks, w, biased_w)
+    if num_peaks < 2:
+        # Failsafe, return average results
+        x0 = np.round(width * 0.1)
+        x1 = np.round(width * 0.9)
+        # print('used failsafe')
+    elif num_peaks == 2:
+        # Twin Peaks found
+        x0 = peaks[0]
+        x1 = peaks[1]
+        # print('twin peaks')
+    else:
+        # pare down list to get most likely right and left values
+        x0_pool, x1_pool = just_edge_peaks(peaks, width)
+        x0, x1 = best_peaks(x0_pool, x1_pool, width, plot)
 
     return x0, x1
 
@@ -275,6 +256,25 @@ def return_y_bounds(peaks, biased_h, height):
         y1 = y1_pool[idx]
 
     return y0, y1
+
+
+def get_x_points(card_img):
+    w, h = card_img.size
+    w_slice = card_img.crop((0, np.round(h * 1/3), w, np.round(h * 2/3)))
+
+    # Make graph of brightnesses
+    intensities_w = get_diff_peaks(w_slice, 0)
+
+    # Bias the curve
+    bias_term = x_bias_curve(intensities_w)
+    biased_w = bias_term * intensities_w
+
+    # Get peaks
+    peaks = find_peaks(biased_w)[0]
+
+    x0, x1 = return_x_bounds(peaks, w, biased_w)
+
+    return x0, x1
 
 
 def get_y_points(card_img):

@@ -58,12 +58,6 @@ if __name__ == '__main__':
         cropped = full_img.crop((bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']))
         cropped.save(os.path.join(args.img_out, '{}.jpg'.format(name)))
 
-        # try:
- 
-
-        # except Exception as e:
-        #     print('error {} for image {}'.format(e, name))
-
     with open(os.path.join(args.out, 'pairs.json'), 'w') as f:
         try:
             json.dump(info_list, f, indent=2)
