@@ -34,12 +34,16 @@ if __name__ == '__main__':
     if not os.path.exists(img_out):
         os.makedirs(img_out)
 
+    with open(args.card_info, 'r') as f:
+        cards = json.load(f)
+
     info_list = []
 
     for img in progressbar.progressbar(images):
         name = os.path.splitext(os.path.basename(img))[0]
+        card_info = next(item for item in cards if item["name"] == name)
 
-        raw_bbox = mip_bbox(img)
+        raw_bbox = mip_bbox(img, card_info)
         x0, y0, x1, y1 = raw_bbox
         bbox = {'x0': x0, 'x1': x1, 'y0': y0, 'y1': y1}
 
