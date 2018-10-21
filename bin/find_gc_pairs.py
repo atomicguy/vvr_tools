@@ -4,6 +4,7 @@ import os
 import glob
 import json
 import progressbar
+import subprocess
 
 from argparse import ArgumentParser
 from PIL import Image
@@ -18,7 +19,10 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--img_dir', type=str, help='directory of cards', required=True)
     parser.add_argument('--out', type=str, help='output dir', required=True)
-    parser.add_argument('--img_out', type=str, help='directory for card output', required=True)
+    parser.add_argument('--card_info', type=str, help='json of card info',
+                        default='data/gt_card_info.json')
+    parser.add_argument('--truth', type=str, help='directory of groundtruth data',
+                        default='data/validation_cardinfo')
     args = parser.parse_args()
 
     if not os.path.exists(args.out):
@@ -26,8 +30,9 @@ if __name__ == '__main__':
 
     images = find_filepaths(args.img_dir, 'jpg')
 
-    if not os.path.exists(args.img_out):
-        os.makedirs(args.img_out)
+    img_out = os.path.join(args.out, 'maips')
+    if not os.path.exists(img_out):
+        os.makedirs(img_out)
 
     info_list = []
 
@@ -43,10 +48,20 @@ if __name__ == '__main__':
         info = {'name': name, 'bbox': bbox}
         info_list.append(info)
         cropped = full_img.crop((bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']))
-        cropped.save(os.path.join(args.img_out, '{}.jpg'.format(name)))
+        cropped.save(os.path.join(img_out, '{}.jpg'.format(name)))
 
-    with open(os.path.join(args.out, 'pairs.json'), 'w') as f:
+    pair_info_path = os.path.join(args.out, 'pairs.json')
+
+    with open(pair_info_path, 'w') as f:
         try:
             json.dump(info_list, f, indent=2)
         except TypeError:
             print(info_list)
+
+    eval_cmd = ['python3', 'bin/evaluate.py',
+                '--card_info', args.card_info,
+                '--pair_info', pair_info_path,
+                '--truth', args.truth,
+                '--out', args.out]
+
+    subprocess.call(eval_cmd)
