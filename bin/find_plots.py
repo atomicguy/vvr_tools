@@ -4,10 +4,12 @@ import os
 import glob
 import json
 import progressbar
+import matplotlib.pyplot as plt
+import numpy as np
 
 from argparse import ArgumentParser
 from PIL import Image
-from src.pairs import get_pair_bounds
+from src.pairs import get_diff_peaks
 
 
 def find_filepaths(path, extension):
@@ -44,22 +46,18 @@ if __name__ == '__main__':
         ymin = card_info['bbox'][1]
         ymax = card_info['bbox'][3]
         img_data = full_img.crop((xmin, ymin, xmax, ymax))
-        # img_data.save(os.path.join(args.out, 'cards', '{}.jpg'.format(name)))
 
-        cropped_bbox = get_pair_bounds(img_data)
-        x0 = xmin + cropped_bbox['x0']
-        x1 = xmin + cropped_bbox['x1']
-        y0 = ymin + cropped_bbox['y0']
-        y1 = ymin + cropped_bbox['y1']
-        bbox = {'x0': x0, 'x1': x1, 'y0': y0, 'y1': y1}
+        smoothed_x = get_diff_peaks(img_data, 0)
 
-        info = {'name': name, 'bbox': bbox}
-        info_list.append(info)
-        cropped = full_img.crop((bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']))
-        cropped.save(os.path.join(args.img_out, '{}.jpg'.format(name)))
+        width, height = img_data.size
+        smoothed_x = smoothed_x / np.max(smoothed_x) * height
 
-    with open(os.path.join(args.out, 'pairs.json'), 'w') as f:
-        try:
-            json.dump(info_list, f, indent=2)
-        except TypeError:
-            print(info_list)
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111)
+        ax1.plot(smoothed_x)
+        plt.imshow(img_data)
+        plt.tick_params(axis='both', which='both', bottom=False, left=False, labelbottom=False, labelleft=False)
+
+        fig.savefig(os.path.join(args.img_out, '{}.jpg'.format(name)))
+
+        plt.close('all')

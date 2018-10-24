@@ -22,8 +22,9 @@ if __name__ == '__main__':
         os.makedirs(args.out)
 
     card_info = os.path.join(args.out, 'info.json')
-    maip_info = os.path.join(args.out, 'pairs.json')
-    maip_dir = os.path.join(args.out, 'maips')
+    maip_info = 'data/truth_pairs.json'
+    # maip_info = os.path.join(args.out, 'pairs.json')
+    # maip_dir = os.path.join(args.out, 'maips')
 
     print('Finding Card Bounds')
     if not os.path.exists(card_info):
@@ -35,17 +36,17 @@ if __name__ == '__main__':
     else:
         print('Card info already calculated')
 
-    print('Finding MAIPs')
-    if not os.path.exists(maip_info):
-        maip_cmd = ['python3', 'bin/find_pairs.py',
-                    '--img_dir', args.img_dir,
-                    '--card_info', card_info,
-                    '--out', args.out,
-                    '--img_out', maip_dir]
-
-        subprocess.call(maip_cmd)
-    else:
-        print('Pair maip info already calculated')
+    # print('Finding MAIPs')
+    # if not os.path.exists(maip_info):
+    #     maip_cmd = ['python3', 'bin/find_pairs.py',
+    #                 '--img_dir', args.img_dir,
+    #                 '--card_info', card_info,
+    #                 '--out', args.out,
+    #                 '--img_out', maip_dir]
+    #
+    #     subprocess.call(maip_cmd)
+    # else:
+    #     print('Pair maip info already calculated')
 
     print('Evaluating')
     eval_cmd = ['python3', 'bin/evaluate.py', 

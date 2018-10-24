@@ -3,22 +3,21 @@ from __future__ import division, absolute_import
 import os
 import numpy as np
 
-from skimage import color 
+from skimage import color, exposure
 from skimage.filters import threshold_otsu, threshold_minimum
-from skimage.morphology import diamond
-from skimage.morphology import binary_erosion
+from skimage.morphology import binary_erosion, diamond
 
 
 def cbcr_split(image):
     """Return combination of Cb and Cr channels"""
-    ycbcr = color.rgb2ycbcr(image)
-
-    cb = ycbcr[:, :, 1]
-    cr = ycbcr[:, :, 2]
-    
-    combo = cr + (np.max(cb) - cb)
-
-    return combo / np.max(combo)
+    # ycbcr = color.rgb2ycbcr(image)
+    #
+    # cb = ycbcr[:, :, 1]
+    # cr = ycbcr[:, :, 2]
+    #
+    # combo = cr + (np.max(cb) - cb)
+    #
+    # return exposure.equalize_adapthist(combo / np.max(combo), clip_limit=0.03)
     
     # lab = color.rgb2lab(image)
     # a = lab[:, :, 1]
@@ -27,6 +26,14 @@ def cbcr_split(image):
     # combo = a + b
 
     # return combo / np.max(combo)
+
+    hsv = color.rgb2hsv(image)
+    sat = hsv[:, :, 1]
+
+    return exposure.equalize_hist(sat / np.max(sat))
+
+    # grey = color.rgb2luv(image)[:, :, 0]
+    # return grey
 
 
 def binary_version(gray_image):
@@ -87,8 +94,6 @@ def calculate_bbox(mask):
     
     x = xmin * mask_width
     y = ymin * mask_height
-    # w = (xmax - xmin) * mask_width
-    # h = (ymax - ymin) * mask_height
     x1 = xmax * mask_width
     y1 = ymax * mask_height
 
