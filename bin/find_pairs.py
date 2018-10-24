@@ -19,13 +19,14 @@ if __name__ == '__main__':
     parser.add_argument('--img_dir', type=str, help='directory of cards', required=True)
     parser.add_argument('--card_info', type=str, help='json info of card bboxes', required=True)
     parser.add_argument('--out', type=str, help='output dir', required=True)
-    parser.add_argument('--img_out', type=str, help='directory for card output', required=True)
+    parser.add_argument('--img_out', type=str, help='directory for card output', default='')
     args = parser.parse_args()
 
     images = find_filepaths(args.img_dir, 'jpg')
 
-    if not os.path.exists(args.img_out):
-        os.makedirs(args.img_out)
+    if args.img_out:
+        if not os.path.exists(args.img_out):
+            os.makedirs(args.img_out)
 
     with open(args.card_info, 'r') as f:
         cards = json.load(f)
@@ -44,7 +45,6 @@ if __name__ == '__main__':
         ymin = card_info['bbox'][1]
         ymax = card_info['bbox'][3]
         img_data = full_img.crop((xmin, ymin, xmax, ymax))
-        # img_data.save(os.path.join(args.out, 'cards', '{}.jpg'.format(name)))
 
         cropped_bbox = get_pair_bounds(img_data)
         x0 = xmin + cropped_bbox['x0']
@@ -55,8 +55,10 @@ if __name__ == '__main__':
 
         info = {'name': name, 'bbox': bbox}
         info_list.append(info)
-        cropped = full_img.crop((bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']))
-        cropped.save(os.path.join(args.img_out, '{}.jpg'.format(name)))
+
+        if args.img_out:
+            cropped = full_img.crop((bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']))
+            cropped.save(os.path.join(args.img_out, '{}.jpg'.format(name)))
 
     with open(os.path.join(args.out, 'pairs.json'), 'w') as f:
         try:

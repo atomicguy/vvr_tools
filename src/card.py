@@ -1,6 +1,5 @@
 from __future__ import division, absolute_import
 
-import os
 import numpy as np
 
 from skimage import color 
@@ -19,28 +18,12 @@ def cbcr_split(image):
     combo = cr + (np.max(cb) - cb)
 
     return combo / np.max(combo)
-    
-    # lab = color.rgb2lab(image)
-    # a = lab[:, :, 1]
-    # b = lab[:, :, 2]
-
-    # combo = a + b
-
-    # return combo / np.max(combo)
 
 
 def binary_version(gray_image):
     """Otsu Method binary thesholded image"""
     thresh = threshold_otsu(gray_image)
     binary = gray_image > thresh
-
-    # block_size = 35
-
-    # local_thresh = threshold_local(gray_image, block_size, offset=10)
-    # binary = gray_image > local_thresh
-
-    # thresh_min = threshold_minimum(gray_image)
-    # binary = gray_image > thresh_min
 
     return binary
 

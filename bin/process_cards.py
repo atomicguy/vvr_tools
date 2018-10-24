@@ -14,7 +14,7 @@ def find_filepaths(path, extension):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--img_dir', type=str, help='directory of images', required=True)
-    parser.add_argument('--truth', type=str, help='ground truth dir', required=True)
+    parser.add_argument('--truth', type=str, help='ground truth dir', default='')
     parser.add_argument('--out', type=str, help='output dir', required=True)
     args = parser.parse_args()
 
@@ -47,11 +47,12 @@ if __name__ == '__main__':
     else:
         print('Pair maip info already calculated')
 
-    print('Evaluating')
-    eval_cmd = ['python3', 'bin/evaluate.py', 
-           '--card_info', card_info, 
-           '--pair_info', maip_info,
-           '--truth', args.truth, 
-           '--out', args.out]
+    if args.truth:
+        print('Evaluating')
+        eval_cmd = ['python3', 'bin/evaluate.py',
+               '--card_info', card_info,
+               '--pair_info', maip_info,
+               '--truth', args.truth,
+               '--out', args.out]
 
     subprocess.call(eval_cmd)

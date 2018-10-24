@@ -80,12 +80,6 @@ def best_peaks(x0_pool, x1_pool, card_width, plot):
     else:
         num_passed = 0
 
-    # TODO:
-    # investigate ways of dealing with variations of 
-    # what happens for variations of pair testing
-    # original writeup showed handling pair match passing
-    # only one test use the 80% rule
-
     if num_passed == 1:
         best_combo = combinations[pool_truth == True]
         x0 = best_combo[0][0]
@@ -97,8 +91,6 @@ def best_peaks(x0_pool, x1_pool, card_width, plot):
         best_combos = combinations[pool_truth == True]
         x0_list = best_combos[:, 0]
         x1_list = best_combos[:, 1]
-        # x0 = np.max(x0_list)
-        # x1 = np.min(x1_list)
 
         peak_vals0 = [plot[i] for i in x0_list]
         idx = np.argmax(peak_vals0)
@@ -172,14 +164,10 @@ def get_diff_peaks(img, axis):
     # return the absolute value of the differential of the sum of image columns
     # axis is 0 for width and 1 for height images
     
-    # TESTING
     hsv = color.rgb2hsv(img)
     sat = hsv[:, :, 1]
     combo_norm = sat / np.max(sat)
 
-    # combo_norm = special_ycbcr(img)
-    # filter
-    # combo_norm = fft_filter(combo_norm, axis, 60)
     _, combo_norm = hog(combo_norm, orientations=6, pixels_per_cell=(16, 16),
                     cells_per_block=(1, 1), visualize=True)
     combo_norm = sobel_v(combo_norm)
@@ -229,9 +217,6 @@ def return_x_bounds(peaks, width, plot):
 
 def return_y_bounds(peaks, biased_h, height):
     y0_pool, y1_pool = just_edge_peaks(peaks, height)
-
-    # TODO:
-    # Try zero cases with 0 and height instead of 10/90%
 
     if len(y0_pool) == 0:
         # Failsafe Value
