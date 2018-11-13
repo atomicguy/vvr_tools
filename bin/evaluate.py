@@ -7,7 +7,7 @@ import progressbar
 
 from argparse import ArgumentParser
 from lxml import etree
-from src.eval import bb_intersection_over_union
+from src.measures import bb_intersection_over_union
 
 if __name__ == '__main__':
     parser = ArgumentParser()
