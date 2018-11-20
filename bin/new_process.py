@@ -9,6 +9,7 @@ import subprocess
 from argparse import ArgumentParser
 from src.card import StereoCard
 from src.pairs import StereoPair
+from src.mip_grabcut import mip_bbox
 
 
 def find_filepaths(path, extension):
@@ -63,15 +64,18 @@ if __name__ == '__main__':
         cropped.save(os.path.join(card_path, '{}.jpg'.format(name)))
 
         # MIP calculation
-        mip = StereoPair(info)
-        mip_bb_card = mip.mip_bb()
-
-        xmin = bbox[0]
-        ymin = bbox[1]
-        mip_bb = {'x0': xmin + mip_bb_card['x0'],
-                  'x1': xmin + mip_bb_card['x1'],
-                  'y0': ymin + mip_bb_card['y0'],
-                  'y1': ymin + mip_bb_card['y1']}
+        # mip = StereoPair(info)
+        # mip_bb_card = mip.mip_bb()
+        mip_data = mip_bbox(img, card_info)
+        mip_bb = {'x0': mip_data[0], 'y0': mip_data[1],
+                       'x1': mip_data[2], 'y1': mip_data[3]}
+        #
+        # xmin = bbox[0]
+        # ymin = bbox[1]
+        # mip_bb = {'x0': xmin + mip_bb_card['x0'],
+        #           'x1': xmin + mip_bb_card['x1'],
+        #           'y0': ymin + mip_bb_card['y0'],
+        #           'y1': ymin + mip_bb_card['y1']}
 
         mip_info = {'name': name, 'bbox': mip_bb}
         mip_info_list.append(mip_info)
