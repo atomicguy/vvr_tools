@@ -3,10 +3,18 @@ from __future__ import division, absolute_import
 import cv2
 import numpy as np
 
-from src.card import calculate_bbox, card_bbox
+from src.card import card_bbox
+from src.measures import calculate_bbox
 from src.pairs import get_pair_bounds
 
 from PIL import Image
+
+
+# [xmin, ymin, xmax, ymax]
+
+sure_foreground     = [0.1781, 0.3087, 0.7926, 0.6522]
+probable_foreground = [0.1247, 0.1735, 0.8624, 0.8530]
+probable_background = [0.0505, 0.0440, 0.9264, 0.9702]
 
 
 def gc_bounds(img, scale, card_info):

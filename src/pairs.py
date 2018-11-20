@@ -4,12 +4,29 @@ import os
 import cv2
 import numpy as np
 
-# from PIL import Image
+from PIL import Image
 from skimage import color
 from skimage.feature import hog
 from skimage.filters import sobel_v
 from scipy.stats import norm
 from scipy.signal import find_peaks, medfilt, lfilter
+
+
+class StereoPair:
+    def __init__(self, config):
+        self.config = config
+        self.img = Image.open(config['path'])
+        self.card_bb = config['card_bb']
+        self.cropped = self.img.crop((self.card_bb[0],
+                                      self.card_bb[1],
+                                      self.card_bb[2],
+                                      self.card_bb[3]))
+
+    def mip_bb(self):
+        x0, x1 = get_x_points(self.cropped)
+        y0, y1 = get_y_points(self.cropped)
+
+        return {'x0': int(x0), 'x1': int(x1), 'y0': int(y0), 'y1': int(y1)}
 
 
 def just_edge_peaks(peaks, width):
