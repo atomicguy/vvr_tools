@@ -43,7 +43,7 @@ if __name__ == '__main__':
     card_info_list = []
     mip_info_list = []
 
-    for img in progressbar.progressbar(images):
+    for img in progressbar.progressbar(sorted(images)):
         name = os.path.splitext(os.path.basename(img))[0]
 
         info = {'path': img,
@@ -64,23 +64,27 @@ if __name__ == '__main__':
         cropped.save(os.path.join(card_path, '{}.jpg'.format(name)))
 
         # MIP calculation
-        # mip = StereoPair(info)
-        # mip_bb_card = mip.mip_bb()
-        mip_data = mip_bbox(img, card_info)
-        mip_bb = {'x0': mip_data[0], 'y0': mip_data[1],
-                       'x1': mip_data[2], 'y1': mip_data[3]}
-        #
-        # xmin = bbox[0]
-        # ymin = bbox[1]
-        # mip_bb = {'x0': xmin + mip_bb_card['x0'],
-        #           'x1': xmin + mip_bb_card['x1'],
-        #           'y0': ymin + mip_bb_card['y0'],
-        #           'y1': ymin + mip_bb_card['y1']}
+        info['mip_channel_split'] = 'sat'
+        info['mip_image_features'] = 'fft'
+        mip = StereoPair(info)
+        mip_bb_card = mip.mip_bb()
+        xmin = bbox[0]
+        ymin = bbox[1]
+        mip_bb = {'x0': xmin + mip_bb_card['x0'],
+                  'x1': xmin + mip_bb_card['x1'],
+                  'y0': ymin + mip_bb_card['y0'],
+                  'y1': ymin + mip_bb_card['y1']}
+
+        # Use for Grabcut
+        # mip_data = mip_bbox(img, card_info)
+        # mip_bb = {'x0': mip_data[0], 'y0': mip_data[1],
+        #                'x1': mip_data[2], 'y1': mip_data[3]}
 
         mip_info = {'name': name, 'bbox': mip_bb}
         mip_info_list.append(mip_info)
 
         img_mip = img_data.crop((mip_bb['x0'], mip_bb['y0'], mip_bb['x1'], mip_bb['y1']))
+        # img_mip = mip.w_features()
         img_mip.save(os.path.join(mip_path, '{}.jpg'.format(name)))
 
     with open(card_info_path, 'w') as f:

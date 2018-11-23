@@ -3,7 +3,7 @@ from __future__ import division, absolute_import
 import cv2
 import numpy as np
 
-from src.card import card_bbox
+# from src.card import card_bbox
 from src.measures import calculate_bbox
 from src.pairs import get_pair_bounds
 

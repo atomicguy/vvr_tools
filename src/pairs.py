@@ -11,6 +11,8 @@ from skimage.filters import sobel_v
 from scipy.stats import norm
 from scipy.signal import find_peaks, medfilt, lfilter
 
+from src.img_ops import single_channel, binary, filter_binary, fft_filter
+
 
 class StereoPair:
     def __init__(self, config):
@@ -22,11 +24,106 @@ class StereoPair:
                                       self.card_bb[2],
                                       self.card_bb[3]))
 
-    def mip_bb(self):
-        x0, x1 = get_x_points(self.cropped)
-        y0, y1 = get_y_points(self.cropped)
+    def channel_split(self, img):
+        method = self.config['mip_channel_split']
+        img = single_channel(img, method)
 
-        return {'x0': int(x0), 'x1': int(x1), 'y0': int(y0), 'y1': int(y1)}
+        return Image.fromarray(img)
+
+    def slice_horizontal(self, img):
+        """Middle third horizontally"""
+        w, h = img.size
+        slice = img.crop((0, np.round(h * 1 / 3), w, np.round(h * 2 / 3)))
+
+        return slice
+
+    def slice_vertical(self, img):
+        """Middle third vertically"""
+        w, h = img.size
+        slice = img.crop((np.round(w * 1 / 3), 0, np.round(w * 2 / 3), h))
+
+        return slice
+
+    def feature_highlight(self, img):
+        w, h = img.size
+        method = self.config['mip_image_features']
+        if method == 'fft':
+            if w > h:
+                axis = 1
+                l = w
+            else:
+                axis = 0
+                l = h
+            filtered = fft_filter(np.asarray(img), axis, l)
+
+        elif method == 'hog':
+            _, filtered = hog(img, orientations=6, pixels_per_cell=(16, 16),
+                              cells_per_block=(1, 1), visualize=True)
+
+        elif method == 'sobel':
+            filtered = sobel_v(combo_norm)
+
+        else:
+            filtered = img
+
+        return filtered
+
+    def w_features(self):
+        img = self.channel_split(self.cropped)
+
+        img_w = self.slice_horizontal(img)
+        img_w = self.feature_highlight(img_w)
+
+        return Image.fromarray(img_w * 255).convert('L')
+
+    def get_peaks(self):
+        # img = self.cropped()
+        img = self.channel_split(self.cropped)
+        w, h = img.size
+
+        img_w = self.slice_horizontal(img)
+        img_h = self.slice_vertical(img)
+
+        img_w = self.feature_highlight(img_w)
+        img_h = self.feature_highlight(img_h)
+
+        x_plot = flatten(img_w, 0)
+        y_plot = flatten(img_h, 1)
+
+        x_plot = x_bias_curve(x_plot) * x_plot
+        y_plot = y_bias_curve(y_plot) * y_plot
+
+        x_peaks = find_peaks(x_plot)[0]
+        x0, x1 = return_x_bounds(x_peaks, w, x_plot)
+
+        y_peaks = find_peaks(y_plot)[0]
+        y0, y1 = return_y_bounds(y_peaks, y_plot, h)
+
+        return x0, x1, y0, y1
+
+    def mip_bb(self):
+        peaks = self.get_peaks()
+
+        return {'x0': int(peaks[0]),
+                'x1': int(peaks[1]),
+                'y0': int(peaks[2]),
+                'y1': int(peaks[3])}
+
+
+def flatten(img, axis):
+    img_sum = np.sum(img, axis=axis)
+    img_diff = np.abs(np.diff(img_sum))
+
+    # copy
+    x_plot = img_diff[:]
+
+    # remove values below the standard deviation
+    x_plot[x_plot < np.std(x_plot)] = 0
+
+    # pad out to full length after differentiation
+    x_plot = np.append(x_plot, 0)
+
+    return x_plot
 
 
 def just_edge_peaks(peaks, width):
@@ -131,30 +228,6 @@ def return_x_bounds(peaks, width, plot):
     return x0, x1
 
 
-def fft_filter(img, axis, mask_width):
-    dft = cv2.dft(np.float32(img), flags=cv2.DFT_COMPLEX_OUTPUT)
-    dft_shift = np.fft.fftshift(dft)
-
-    rows, cols = img.shape
-    crow, ccol = int(rows/2), int(cols/2)
-
-    # create a mask first, center square is 1, remaining all zeros
-    mask = np.ones((rows,cols,2),np.uint8)
-    x = int(mask_width / 2)
-    if axis == 1:
-        mask[crow-x:crow+x, :] = 0
-    else:
-        mask[:, ccol-x:ccol+x] = 0
-
-    # apply mask and inverse DFT
-    fshift = dft_shift*mask
-    f_ishift = np.fft.ifftshift(fshift)
-    img_back = cv2.idft(f_ishift)
-    img_back = cv2.magnitude(img_back[:, :, 0], img_back[:, :, 1])
-
-    return img_back / np.max(img_back)
-
-
 def special_ycbcr(img):
     # Combination of Cb and Cr channels
     ycbcr = color.rgb2ycbcr(img)
@@ -200,10 +273,6 @@ def get_diff_peaks(img, axis):
 
     # mean filter
     smoothed = medfilt(x_plot, kernel_size=3)
-    
-    # # FOR TESTING ONLY
-    # bias = x_bias_curve(smoothed)
-    # smoothed = smoothed * bias
 
     return smoothed
 

@@ -62,9 +62,9 @@ def calculate_bbox(mask):
     assert width >= 0.0
     assert width < 1.0
 
-    x = xmin * mask_width
-    y = ymin * mask_height
+    x0 = xmin * mask_width
+    y0 = ymin * mask_height
     x1 = xmax * mask_width
     y1 = ymax * mask_height
 
-    return [int(x), int(y), int(x1), int(y1)]
+    return [int(x0), int(y0), int(x1), int(y1)]

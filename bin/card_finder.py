@@ -43,14 +43,11 @@ if __name__ == '__main__':
 
         card = StereoCard(info)
 
-        try:
-            img_data = card.img
-            bbox = card.bbox
+        img_data = card.img
+        bbox = card.bbox()
 
-            info = {'name': name, 'bbox': bbox}
-            info_list.append(info)
-        except:
-            pass
+        info = {'name': name, 'bbox': bbox}
+        info_list.append(info)
 
         cropped = img_data.crop((bbox[0], bbox[1], bbox[2], bbox[3]))
         cropped.save(os.path.join(card_path, '{}.jpg'.format(name)))
