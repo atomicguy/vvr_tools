@@ -12,6 +12,84 @@ from scipy.stats import norm
 from scipy.signal import find_peaks, medfilt, lfilter
 
 from src.img_ops import single_channel, binary, filter_binary, fft_filter
+from src.measures import calculate_bbox
+
+
+class StereoPairGC:
+    def __init__(self, config):
+        self.config = config
+        self.scale = config['scale']
+        self.img = Image.open(config['path'])
+        self.card_bb = config['card_bb']
+        self.cv_img = cv2.imread(config['path'])
+        self.scaled = cv2.resize(self.cv_img, dsize=(0, 0), fx=self.scale, fy=self.scale)
+
+    def gc_mask(self):
+        h, w = self.scaled.shape[:2]
+        fg = (np.asarray([w, h, w, h]) * self.config['sure_foreground']).astype(int)
+        pfg = (np.asarray([w, h, w, h]) * self.config['probable_foreground']).astype(int)
+        pbg = (np.asarray([w, h, w, h]) * self.config['probable_background']).astype(int)
+
+        mask = np.zeros(self.scaled.shape[:2], np.uint8)
+        mask[pbg[1]:pbg[3], pbg[0]:pbg[2]] = 3
+        mask[pfg[1]:pfg[3], pfg[0]:pfg[2]] = 2
+        mask[fg[1]:fg[3], fg[0]:fg[2]] = 1
+
+        return mask
+
+    def rect(self):
+        h, w = self.scaled.shape[:2]
+        x0, y0, x1, y1 = np.asarray(self.card_bb) * self.scale
+        x0_, y0_, x1_, y1_ = self.config['rect_scale']
+        x0 = int(x0 + x0_ * w)
+        x1 = int(x1 - x1_ * w)
+        y0 = int(y0 + y0_ * h)
+        y1 = int(y1 - y1_ * h)
+        rect_w = x1 - x0
+        rect_h = y1 - y0
+
+        return x0, y0, rect_w, rect_h
+
+    def in_process(self):
+        img = self.scaled
+        x0, y0, w, h = self.rect()
+
+        cv2.rectangle(img, (x0, y0), (x0 + w, y0 + h), (0, 255, 0), 2)
+
+        return img
+
+
+    def grabcut(self):
+        bgdModel = np.zeros((1, 65), np.float64)
+        fgdModel = np.zeros((1, 65), np.float64)
+        rect = self.rect()
+        mask = self.gc_mask()
+        iter_count = self.config['iter_count']
+        img = self.scaled
+
+        cv2.grabCut(img, mask, rect, bgdModel, fgdModel, iter_count, cv2.GC_INIT_WITH_RECT)
+        mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        gc_img = img * mask2[:, :, np.newaxis]
+
+        return gc_img
+
+    def grabcut_cleanup(self):
+        img = cv2.cvtColor(self.grabcut(), cv2.COLOR_BGR2GRAY)
+
+        h = int(img.shape[0] * self.config['k_scale'])
+        w = int(img.shape[1] * self.config['k_scale'])
+
+        kernel = np.ones((w, h), np.uint8)
+
+        opened = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
+
+        return opened
+
+    def mip_bbox(self):
+        mask = self.grabcut_cleanup()
+        mask = cv2.resize(mask, dsize=(0, 0), fx=1/self.scale, fy=1/self.scale)
+
+        return calculate_bbox(mask)
 
 
 class StereoPair:
@@ -101,7 +179,7 @@ class StereoPair:
 
         return x0, x1, y0, y1
 
-    def mip_bb(self):
+    def mip_bbox(self):
         peaks = self.get_peaks()
 
         return {'x0': int(peaks[0]),

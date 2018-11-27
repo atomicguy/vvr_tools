@@ -9,7 +9,6 @@ from src.pairs import get_pair_bounds
 
 from PIL import Image
 
-
 # [xmin, ymin, xmax, ymax]
 
 sure_foreground     = [0.1781, 0.3087, 0.7926, 0.6522]
