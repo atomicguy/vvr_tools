@@ -35,9 +35,9 @@ if __name__ == '__main__':
     if not os.path.exists(mip_path):
         os.makedirs(mip_path)
 
-    tmp_path = os.path.join(args.out, 'tmp')
-    if not os.path.exists(tmp_path):
-        os.makedirs(tmp_path)
+    # tmp_path = os.path.join(args.out, 'tmp')
+    # if not os.path.exists(tmp_path):
+    #     os.makedirs(tmp_path)
 
     card_info_path = os.path.join(args.out, 'info.json')
     mip_info_path = os.path.join(args.out, 'pairs.json')
@@ -69,6 +69,7 @@ if __name__ == '__main__':
                     'iter_count': 5,
                     'k_scale': 0.05,
                     'rect_scale': [0.02, 0.02, 0.02, 0.02],
+                    'gc_type': 'rect',
                     'sure_foreground': [0.1781, 0.3087, 0.7926, 0.6522],
                     'probable_foreground': [0.1247, 0.1735, 0.8624, 0.8530],
                     'probable_background': [0.0505, 0.0440, 0.9264, 0.9702]
@@ -115,8 +116,8 @@ if __name__ == '__main__':
                       'x1': mip_bb_card[2],
                       'y1': mip_bb_card[3]}
 
-            tmp_img = mip.in_process()
-            cv2.imwrite(os.path.join(tmp_path, '{}.jpg'.format(name)), tmp_img)
+            # tmp_img = mip.in_process()
+            # cv2.imwrite(os.path.join(tmp_path, '{}.jpg'.format(name)), tmp_img)
 
         else:
             print('No MIP method specified')

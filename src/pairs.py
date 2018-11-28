@@ -62,12 +62,25 @@ class StereoPairGC:
     def grabcut(self):
         bgdModel = np.zeros((1, 65), np.float64)
         fgdModel = np.zeros((1, 65), np.float64)
-        rect = self.rect()
-        mask = self.gc_mask()
+
         iter_count = self.config['iter_count']
         img = self.scaled
 
-        cv2.grabCut(img, mask, rect, bgdModel, fgdModel, iter_count, cv2.GC_INIT_WITH_RECT)
+        if self.config['gc_type'] == 'mask':
+            mask = self.gc_mask()
+            cv2.grabCut(img, mask, None, bgdModel, fgdModel, iter_count, cv2.GC_INIT_WITH_MASK)
+
+        elif self.config['gc_type'] == 'rect':
+            rect = self.rect()
+            mask = np.zeros(self.scaled.shape[:2], np.uint8)
+            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, iter_count, cv2.GC_INIT_WITH_RECT)
+
+        else:
+            mask = np.zeros(self.scaled.shape[:2], np.uint8)
+            h, w = self.scaled.shape[:2]
+            rect = 1, 1, w, h
+            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, iter_count, cv2.GC_INIT_WITH_RECT)
+
         mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
         gc_img = img * mask2[:, :, np.newaxis]
 
@@ -139,7 +152,7 @@ class StereoPair:
                               cells_per_block=(1, 1), visualize=True)
 
         elif method == 'sobel':
-            filtered = sobel_v(combo_norm)
+            filtered = sobel_v(img)
 
         else:
             filtered = img
