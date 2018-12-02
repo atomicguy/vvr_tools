@@ -152,7 +152,8 @@ class StereoPair:
                               cells_per_block=(1, 1), visualize=True)
 
         elif method == 'sobel':
-            filtered = sobel_v(img)
+            # print(np.max(np.asarray(img)))
+            filtered = sobel_v(np.asarray(img) / np.max(np.asarray(img)))
 
         else:
             filtered = img
@@ -249,18 +250,12 @@ def best_peaks(x0_pool, x1_pool, card_width, plot):
     else:
         num_passed = 0
 
-    # TODO:
-    # investigate ways of dealing with variations of 
-    # what happens for variations of pair testing
-    # original writeup showed handling pair match passing
-    # only one test use the 80% rule
-
     if num_passed == 1:
         best_combo = combinations[pool_truth == True]
         x0 = best_combo[0][0]
         x1 = best_combo[0][1]
 
-    if num_passed > 1:
+    elif num_passed > 1:
         # narrow down x0_pool and x1_pool from all which passed both tests
         # print('num passed is {}'.format(num_passed))
         best_combos = combinations[pool_truth == True]
@@ -347,7 +342,7 @@ def get_diff_peaks(img, axis):
     # filter
     # combo_norm = fft_filter(combo_norm, axis, 60)
     _, combo_norm = hog(combo_norm, orientations=6, pixels_per_cell=(16, 16),
-                    cells_per_block=(1, 1), visualize=True)
+                        cells_per_block=(1, 1), visualize=True)
     # combo_norm = sobel_v(combo_norm)
 
     combo_sum = np.sum(combo_norm, axis=axis)

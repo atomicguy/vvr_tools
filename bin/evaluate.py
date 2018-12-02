@@ -70,3 +70,6 @@ if __name__ == '__main__':
 
     open(os.path.join(args.out, 'maip {}'.format(mean_maip_iou)), 'w').close()
     open(os.path.join(args.out, 'card {}'.format(mean_card_iou)), 'w').close()
+
+    with open(os.path.join(args.out, 'mean_mip_iou.txt'), 'w') as f:
+        f.write(str(mean_maip_iou))
