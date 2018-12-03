@@ -15,7 +15,7 @@ def run_trial(trial):
                  '--img_dir', trial['input_imgs'],
                  '--truth', trial['truth_data'],
                  '--save_cards', 'False',
-                 '--save_mips', 'False',
+                 '--save_mips', 'True',
                  '--skip_cards', 'True']
 
     subprocess.call(trial_cmd)
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         results_csv.append(trial)
 
     keys = results_csv[0].keys()
-    with open(os.path.join(args.out, 'results_pt3.csv'), 'w') as f:
+    with open(os.path.join(args.out, 'results_pt5.csv'), 'w') as f:
         dict_writer = csv.DictWriter(f, keys)
         dict_writer.writeheader()
         dict_writer.writerows(results_csv)

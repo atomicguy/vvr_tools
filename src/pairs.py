@@ -25,10 +25,17 @@ class StereoPairGC:
         self.scaled = cv2.resize(self.cv_img, dsize=(0, 0), fx=self.scale, fy=self.scale)
 
     def gc_mask(self):
-        h, w = self.scaled.shape[:2]
-        fg = (np.asarray([w, h, w, h]) * self.config['sure_foreground']).astype(int)
-        pfg = (np.asarray([w, h, w, h]) * self.config['probable_foreground']).astype(int)
-        pbg = (np.asarray([w, h, w, h]) * self.config['probable_background']).astype(int)
+        # h, w = self.scaled.shape[:2]
+        # fg = (np.asarray([w, h, w, h]) * self.config['sure_foreground']).astype(int)
+        # pfg = (np.asarray([w, h, w, h]) * self.config['probable_foreground']).astype(int)
+        # pbg = (np.asarray([w, h, w, h]) * self.config['probable_background']).astype(int)
+
+        fg = inset_mip_box(self.scaled.shape[:2], self.scale,
+                           self.card_bb, self.config['sure_foreground'])
+        pfg = inset_mip_box(self.scaled.shape[:2], self.scale,
+                            self.card_bb, self.config['probable_foreground'])
+        pbg = inset_mip_box(self.scaled.shape[:2], self.scale,
+                            self.card_bb, self.config['probable_background'])
 
         mask = np.zeros(self.scaled.shape[:2], np.uint8)
         mask[pbg[1]:pbg[3], pbg[0]:pbg[2]] = 3
@@ -38,13 +45,16 @@ class StereoPairGC:
         return mask
 
     def rect(self):
-        h, w = self.scaled.shape[:2]
-        x0, y0, x1, y1 = np.asarray(self.card_bb) * self.scale
-        x0_, y0_, x1_, y1_ = self.config['rect_scale']
-        x0 = int(x0 + x0_ * w)
-        x1 = int(x1 - x1_ * w)
-        y0 = int(y0 + y0_ * h)
-        y1 = int(y1 - y1_ * h)
+        # h, w = self.scaled.shape[:2]
+        # x0, y0, x1, y1 = np.asarray(self.card_bb) * self.scale
+        # x0_, y0_, x1_, y1_ = self.config['rect_scale']
+        # x0 = int(x0 + x0_ * w)
+        # x1 = int(x1 - x1_ * w)
+        # y0 = int(y0 + y0_ * h)
+        # y1 = int(y1 - y1_ * h)
+        x0, y0, x1, y1 = inset_mip_box(self.scaled.shape[:2], self.scale,
+                                       self.card_bb, self.config['rect_scale'])
+
         rect_w = x1 - x0
         rect_h = y1 - y0
 
@@ -216,6 +226,27 @@ def flatten(img, axis):
     x_plot = np.append(x_plot, 0)
 
     return x_plot
+
+
+def inset_mip_box(img_size, scale, card_bbox, mip_offset):
+    """Generate a scaled, offset proposed mip box
+
+    :param img_size: (h, w) scaled image size
+    :param scale: image scaling factor
+    :param card_bbox: (x0, y0, x1, y1) unscaled card bbox
+    :param mip_offset: (x0_offset, y0_offset, x1_off, y1_off)
+                       % of image size by which to inset proposed mip bbox
+    :return: (x0, y1, x1, y1) scaled proposed mip bbox
+    """
+    h, w = img_size
+    x0, y0, x1, y1 = np.asarray(card_bbox) * scale
+    x0_, y0_, x1_, y1_ = mip_offset
+    x0 = int(x0 + x0_ * w)
+    x1 = int(x1 - x1_ * w)
+    y0 = int(y0 + y0_ * h)
+    y1 = int(y1 - y1_ * h)
+
+    return x0, y0, x1, y1
 
 
 def just_edge_peaks(peaks, width):
