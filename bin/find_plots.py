@@ -21,13 +21,14 @@ if __name__ == '__main__':
     parser.add_argument('--img_dir', type=str, help='directory of cards', required=True)
     parser.add_argument('--card_info', type=str, help='json info of card bboxes', required=True)
     parser.add_argument('--out', type=str, help='output dir', required=True)
-    parser.add_argument('--img_out', type=str, help='directory for card output', required=True)
+    parser.add_argument('--img_out', type=str, help='directory for card output', default='')
     args = parser.parse_args()
 
     images = find_filepaths(args.img_dir, 'jpg')
 
-    if not os.path.exists(args.img_out):
-        os.makedirs(args.img_out)
+    if args.img_out:
+        if not os.path.exists(args.img_out):
+            os.makedirs(args.img_out)
 
     with open(args.card_info, 'r') as f:
         cards = json.load(f)

@@ -1,7 +1,6 @@
 from __future__ import division, absolute_import
 
 from PIL import Image
-
 from src.img_ops import single_channel, binary, filter_binary
 from src.measures import calculate_bbox
 
