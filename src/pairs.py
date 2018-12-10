@@ -4,12 +4,237 @@ import os
 import cv2
 import numpy as np
 
-# from PIL import Image
+from PIL import Image
 from skimage import color
 from skimage.feature import hog
 from skimage.filters import sobel_v
 from scipy.stats import norm
 from scipy.signal import find_peaks, medfilt, lfilter
+
+from src.img_ops import single_channel, binary, filter_binary, fft_filter
+from src.measures import calculate_bbox
+
+
+class StereoPairGC:
+    def __init__(self, config):
+        self.config = config
+        self.scale = config['scale']
+        self.img = Image.open(config['path'])
+        self.card_bb = config['card_bb']
+        self.cv_img = cv2.imread(config['path'])
+        self.scaled = cv2.resize(self.cv_img, dsize=(0, 0), fx=self.scale, fy=self.scale)
+
+    def gc_mask(self):
+        fg = inset_mip_box(self.scaled.shape[:2], self.scale,
+                           self.card_bb, self.config['sure_foreground'])
+        pfg = inset_mip_box(self.scaled.shape[:2], self.scale,
+                            self.card_bb, self.config['probable_foreground'])
+        pbg = inset_mip_box(self.scaled.shape[:2], self.scale,
+                            self.card_bb, self.config['probable_background'])
+
+        mask = np.zeros(self.scaled.shape[:2], np.uint8)
+        mask[pbg[1]:pbg[3], pbg[0]:pbg[2]] = 3
+        mask[pfg[1]:pfg[3], pfg[0]:pfg[2]] = 2
+        mask[fg[1]:fg[3], fg[0]:fg[2]] = 1
+
+        return mask
+
+    def rect(self):
+        x0, y0, x1, y1 = inset_mip_box(self.scaled.shape[:2], self.scale,
+                                       self.card_bb, self.config['rect_scale'])
+
+        rect_w = x1 - x0
+        rect_h = y1 - y0
+
+        return x0, y0, rect_w, rect_h
+
+    def in_process(self):
+        img = self.scaled
+        x0, y0, w, h = self.rect()
+
+        cv2.rectangle(img, (x0, y0), (x0 + w, y0 + h), (0, 255, 0), 2)
+
+        return img
+
+
+    def grabcut(self):
+        bgdModel = np.zeros((1, 65), np.float64)
+        fgdModel = np.zeros((1, 65), np.float64)
+
+        iter_count = self.config['iter_count']
+        img = self.scaled
+
+        if self.config['gc_type'] == 'mask':
+            mask = self.gc_mask()
+            cv2.grabCut(img, mask, None, bgdModel, fgdModel, iter_count, cv2.GC_INIT_WITH_MASK)
+
+        elif self.config['gc_type'] == 'rect':
+            rect = self.rect()
+            mask = np.zeros(self.scaled.shape[:2], np.uint8)
+            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, iter_count, cv2.GC_INIT_WITH_RECT)
+
+        else:
+            mask = np.zeros(self.scaled.shape[:2], np.uint8)
+            h, w = self.scaled.shape[:2]
+            rect = 1, 1, w, h
+            cv2.grabCut(img, mask, rect, bgdModel, fgdModel, iter_count, cv2.GC_INIT_WITH_RECT)
+
+        mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
+        gc_img = img * mask2[:, :, np.newaxis]
+
+        return gc_img
+
+    def grabcut_cleanup(self):
+        img = cv2.cvtColor(self.grabcut(), cv2.COLOR_BGR2GRAY)
+
+        h = int(img.shape[0] * self.config['k_scale'])
+        w = int(img.shape[1] * self.config['k_scale'])
+
+        kernel = np.ones((w, h), np.uint8)
+
+        opened = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
+
+        return opened
+
+    def mip_bbox(self):
+        mask = self.grabcut_cleanup()
+        mask = cv2.resize(mask, dsize=(0, 0), fx=1/self.scale, fy=1/self.scale)
+
+        return calculate_bbox(mask)
+
+
+class StereoPair:
+    def __init__(self, config):
+        self.config = config
+        self.img = Image.open(config['path'])
+        self.card_bb = config['card_bb']
+        self.cropped = self.img.crop((self.card_bb[0],
+                                      self.card_bb[1],
+                                      self.card_bb[2],
+                                      self.card_bb[3]))
+
+    def channel_split(self, img):
+        method = self.config['mip_channel_split']
+        img = single_channel(img, method)
+
+        return Image.fromarray(img)
+
+    def slice_horizontal(self, img):
+        """Middle third horizontally"""
+        w, h = img.size
+        slice = img.crop((0, np.round(h * 1 / 3), w, np.round(h * 2 / 3)))
+
+        return slice
+
+    def slice_vertical(self, img):
+        """Middle third vertically"""
+        w, h = img.size
+        slice = img.crop((np.round(w * 1 / 3), 0, np.round(w * 2 / 3), h))
+
+        return slice
+
+    def feature_highlight(self, img):
+        w, h = img.size
+        method = self.config['mip_image_features']
+        if method == 'fft':
+            if w > h:
+                axis = 1
+                l = w
+            else:
+                axis = 0
+                l = h
+            filtered = fft_filter(np.asarray(img), axis, l)
+
+        elif method == 'hog':
+            _, filtered = hog(img, orientations=6, pixels_per_cell=(16, 16),
+                              cells_per_block=(1, 1), visualize=True)
+
+        elif method == 'sobel':
+            # print(np.max(np.asarray(img)))
+            filtered = sobel_v(np.asarray(img) / np.max(np.asarray(img)))
+
+        else:
+            filtered = img
+
+        return filtered
+
+    def w_features(self):
+        img = self.channel_split(self.cropped)
+
+        img_w = self.slice_horizontal(img)
+        img_w = self.feature_highlight(img_w)
+
+        return Image.fromarray(img_w * 255).convert('L')
+
+    def get_peaks(self):
+        # img = self.cropped()
+        img = self.channel_split(self.cropped)
+        w, h = img.size
+
+        img_w = self.slice_horizontal(img)
+        img_h = self.slice_vertical(img)
+
+        img_w = self.feature_highlight(img_w)
+        img_h = self.feature_highlight(img_h)
+
+        x_plot = flatten(img_w, 0)
+        y_plot = flatten(img_h, 1)
+
+        x_plot = x_bias_curve(x_plot) * x_plot
+        y_plot = y_bias_curve(y_plot) * y_plot
+
+        x_peaks = find_peaks(x_plot)[0]
+        x0, x1 = return_x_bounds(x_peaks, w, x_plot)
+
+        y_peaks = find_peaks(y_plot)[0]
+        y0, y1 = return_y_bounds(y_peaks, y_plot, h)
+
+        return x0, x1, y0, y1
+
+    def mip_bbox(self):
+        peaks = self.get_peaks()
+
+        return {'x0': int(peaks[0]),
+                'x1': int(peaks[1]),
+                'y0': int(peaks[2]),
+                'y1': int(peaks[3])}
+
+
+def flatten(img, axis):
+    img_sum = np.sum(img, axis=axis)
+    img_diff = np.abs(np.diff(img_sum))
+
+    # copy
+    x_plot = img_diff[:]
+
+    # remove values below the standard deviation
+    x_plot[x_plot < np.std(x_plot)] = 0
+
+    # pad out to full length after differentiation
+    x_plot = np.append(x_plot, 0)
+
+    return x_plot
+
+
+def inset_mip_box(img_size, scale, card_bbox, mip_offset):
+    """Generate a scaled, offset proposed mip box
+
+    :param img_size: (h, w) scaled image size
+    :param scale: image scaling factor
+    :param card_bbox: (x0, y0, x1, y1) unscaled card bbox
+    :param mip_offset: (x0_offset, y0_offset, x1_off, y1_off)
+                       % of image size by which to inset proposed mip bbox
+    :return: (x0, y1, x1, y1) scaled proposed mip bbox
+    """
+    h, w = img_size
+    x0, y0, x1, y1 = np.asarray(card_bbox) * scale
+    x0_, y0_, x1_, y1_ = mip_offset
+    x0 = int(x0 + x0_ * w)
+    x1 = int(x1 - x1_ * w)
+    y0 = int(y0 + y0_ * h)
+    y1 = int(y1 - y1_ * h)
+
+    return x0, y0, x1, y1
 
 
 def x_bias_curve(x_data):
@@ -85,7 +310,7 @@ def best_peaks(x0_pool, x1_pool, card_width, plot):
         x0 = best_combo[0][0]
         x1 = best_combo[0][1]
 
-    if num_passed > 1:
+    elif num_passed > 1:
         # narrow down x0_pool and x1_pool from all which passed both tests
         # print('num passed is {}'.format(num_passed))
         best_combos = combinations[pool_truth == True]
@@ -121,28 +346,25 @@ def best_peaks(x0_pool, x1_pool, card_width, plot):
     return x0, x1
 
 
-def fft_filter(img, axis, mask_width):
-    dft = cv2.dft(np.float32(img), flags=cv2.DFT_COMPLEX_OUTPUT)
-    dft_shift = np.fft.fftshift(dft)
+def return_x_bounds(peaks, width, plot):
+    num_peaks = len(peaks)
 
-    rows, cols = img.shape
-    crow, ccol = int(rows/2), int(cols/2)
-
-    # create a mask first, center square is 1, remaining all zeros
-    mask = np.ones((rows,cols,2),np.uint8)
-    x = int(mask_width / 2)
-    if axis == 1:
-        mask[crow-x:crow+x, :] = 0
+    if num_peaks < 2:
+        # Failsafe, return average results
+        x0 = np.round(width * 0.1)
+        x1 = np.round(width * 0.9)
+        # print('used failsafe')
+    elif num_peaks == 2:
+        # Twin Peaks found
+        x0 = peaks[0]
+        x1 = peaks[1]
+        # print('twin peaks')
     else:
-        mask[:, ccol-x:ccol+x] = 0
+        # pare down list to get most likely right and left values
+        x0_pool, x1_pool = just_edge_peaks(peaks, width)
+        x0, x1 = best_peaks(x0_pool, x1_pool, width, plot)
 
-    # apply mask and inverse DFT
-    fshift = dft_shift*mask
-    f_ishift = np.fft.ifftshift(fshift)
-    img_back = cv2.idft(f_ishift)
-    img_back = cv2.magnitude(img_back[:, :, 0], img_back[:, :, 1])
-
-    return img_back / np.max(img_back)
+    return x0, x1
 
 
 def special_ycbcr(img):
@@ -186,10 +408,6 @@ def get_diff_peaks(img, axis):
 
     # mean filter
     smoothed = medfilt(x_plot, kernel_size=3)
-    
-    # # FOR TESTING ONLY
-    # bias = x_bias_curve(smoothed)
-    # smoothed = smoothed * bias
 
     return smoothed
 
